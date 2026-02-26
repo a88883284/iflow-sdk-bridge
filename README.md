@@ -164,15 +164,17 @@ The bridge automatically sanitizes sensitive information with natural replacemen
 | `api_key: "sk-xxx"` | `api_key: "xxx"` |
 | `localhost:28002` | `localhost:8080` |
 
-## Comparison with iflow2api
+## Comparison: SDK Bridge vs Direct API Calls
 
-| Aspect | iFlow SDK Bridge | iflow2api |
-|--------|------------------|-----------|
-| Language | Node.js/TypeScript | Python |
-| Approach | Official SDK | Direct HTTP |
+| Aspect | iFlow SDK Bridge | Direct API Calls |
+|--------|------------------|------------------|
+| Approach | Official SDK | HTTP requests |
 | Security | Native | Manual simulation |
 | Complexity | Simple | Complex |
 | Risk Level | Low | Higher |
+| TLS Fingerprint | ✅ Auto (Node.js) | ⚠️ Needs curl_cffi |
+| Telemetry | ✅ CLI handles | ⚠️ Manual simulation |
+| Headers | ✅ CLI handles | ⚠️ Manual alignment |
 
 ## License
 

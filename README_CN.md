@@ -164,15 +164,17 @@ Bridge 会自动过滤敏感信息，使用自然替换词：
 | `api_key: "sk-xxx"` | `api_key: "xxx"` |
 | `localhost:28002` | `localhost:8080` |
 
-## 与 iflow2api 对比
+## 对比：SDK Bridge vs 直接 API 调用
 
-| 方面 | iFlow SDK Bridge | iflow2api |
-|------|------------------|-----------|
-| 语言 | Node.js/TypeScript | Python |
-| 实现方式 | 官方 SDK | 直接 HTTP |
+| 方面 | iFlow SDK Bridge | 直接 API 调用 |
+|------|------------------|---------------|
+| 实现方式 | 官方 SDK | HTTP 请求 |
 | 安全性 | 原生支持 | 需手动模拟 |
 | 复杂度 | 简单 | 复杂 |
 | 风险等级 | 低 | 较高 |
+| TLS 指纹 | ✅ 自动 (Node.js) | ⚠️ 需要 curl_cffi |
+| 遥测上报 | ✅ CLI 自动处理 | ⚠️ 需手动模拟 |
+| 请求头对齐 | ✅ CLI 自动处理 | ⚠️ 需手动对齐 |
 
 ## PM2 部署
 
