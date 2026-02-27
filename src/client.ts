@@ -1,6 +1,5 @@
 import { IFlowClient, PermissionMode, MessageType } from '@iflow-ai/iflow-cli-sdk';
 import type { Message, AssistantMessage } from '@iflow-ai/iflow-cli-sdk';
-import { sanitizeMessages, sanitizeString, detectSensitiveInfo } from './sanitizer.js';
 
 export interface ChatCompletionOptions {
   model: string;
@@ -11,8 +10,6 @@ export interface ChatCompletionOptions {
   stream?: boolean;
   temperature?: number;
   max_tokens?: number;
-  /** 是否过滤敏感信息（默认 true） */
-  sanitize?: boolean;
 }
 
 export interface ChatCompletionResponse {
@@ -86,7 +83,7 @@ export class IFlowSDKClient {
   private sessionCreateTime: number = 0;
   private sessionIdCounter: number = 0;
   private silentMode: boolean = false;
-  
+
   // 请求间隔限制（毫秒）- 随机区间，模拟人类行为
   private readonly MIN_REQUEST_INTERVAL = 300;
   private readonly MAX_REQUEST_INTERVAL = 1500;
@@ -95,7 +92,7 @@ export class IFlowSDKClient {
   // 会话轮换：每 50 次请求或 30 分钟重连
   private readonly MAX_REQUESTS_PER_SESSION = 50;
   private readonly MAX_SESSION_AGE_MS = 30 * 60 * 1000; // 30分钟
-  
+
   private requestTimestamps: number[] = [];
 
   /**
@@ -131,7 +128,7 @@ export class IFlowSDKClient {
 
   private async connect(): Promise<void> {
     this.log('[IFlowSDK] 正在连接 iFlow CLI...');
-    
+
     this.client = new IFlowClient({
       // 自动启动 iFlow 进程
       autoStartProcess: true,
@@ -152,14 +149,14 @@ export class IFlowSDKClient {
     });
 
     await this.client.connect();
-    
+
     // 设置模型
     await this.client.config.set('model', this.model);
-    
+
     // 记录会话创建时间
     this.sessionCreateTime = Date.now();
     this.sessionIdCounter++;
-    
+
     this.log(`[IFlowSDK] 已连接到 iFlow CLI (会话 #${this.sessionIdCounter})`);
   }
 
@@ -181,10 +178,10 @@ export class IFlowSDKClient {
    */
   private async checkRateLimit(): Promise<void> {
     const now = Date.now();
-    
+
     // 清理一分钟前的时间戳
     this.requestTimestamps = this.requestTimestamps.filter(t => now - t < 60000);
-    
+
     // 检查每分钟请求限制
     if (this.requestTimestamps.length >= this.MAX_REQUESTS_PER_MINUTE) {
       const oldestInWindow = this.requestTimestamps[0];
@@ -192,7 +189,7 @@ export class IFlowSDKClient {
       this.log(`[IFlowSDK] 频率限制：等待 ${Math.ceil(waitTime / 1000)}秒`);
       await this.sleep(waitTime);
     }
-    
+
     // 检查最小请求间隔 - 随机化
     const timeSinceLastRequest = now - this.lastRequestTime;
     const targetInterval = this.randomDelay(this.MIN_REQUEST_INTERVAL, this.MAX_REQUEST_INTERVAL);
@@ -200,12 +197,12 @@ export class IFlowSDKClient {
       const waitTime = targetInterval - timeSinceLastRequest;
       await this.sleep(waitTime);
     }
-    
+
     // 记录本次请求
     this.lastRequestTime = Date.now();
     this.requestTimestamps.push(this.lastRequestTime);
     this.requestCount++;
-    
+
     // 会话轮换检查
     await this.checkSessionRotation();
   }
@@ -216,10 +213,10 @@ export class IFlowSDKClient {
    */
   private async checkSessionRotation(): Promise<void> {
     const now = Date.now();
-    const needsRotation = 
+    const needsRotation =
       this.requestCount >= this.MAX_REQUESTS_PER_SESSION ||
       (this.sessionCreateTime && now - this.sessionCreateTime > this.MAX_SESSION_AGE_MS);
-    
+
     if (needsRotation && this.client?.isConnected()) {
       this.log('[IFlowSDK] 会话轮换：断开重连...');
       await this.disconnect();
@@ -257,8 +254,8 @@ export class IFlowSDKClient {
   /**
    * 获取请求统计信息
    */
-  getStats(): { 
-    totalRequests: number; 
+  getStats(): {
+    totalRequests: number;
     recentRequests: number;
     sessionCount: number;
     sessionAgeSec: number;
@@ -290,35 +287,16 @@ export class IFlowSDKClient {
   async chat(options: ChatCompletionOptions): Promise<ChatCompletionResponse> {
     // 频率限制检查
     await this.checkRateLimit();
-    
+
     await this.ensureConnected();
-    
+
     // 设置模型
     const model = MODEL_ALIASES[options.model] || options.model;
     await this.client!.config.set('model', model);
 
-    // 敏感信息过滤（默认启用）
-    const shouldSanitize = options.sanitize !== false;
-    const messages = shouldSanitize ? sanitizeMessages(options.messages) : options.messages;
-    
-    // 检测并警告敏感信息
-    if (shouldSanitize) {
-      for (const msg of options.messages) {
-        const contentStr = typeof msg.content === 'string' 
-          ? msg.content 
-          : (Array.isArray(msg.content) 
-              ? msg.content.filter(c => c.type === 'text').map(c => c.text || '').join('') 
-              : '');
-        const detected = detectSensitiveInfo(contentStr);
-        if (detected.length > 0) {
-          this.log(`[IFlowSDK] 已过滤敏感信息: ${detected.length} 处`);
-        }
-      }
-    }
-
     // 构建提示词
-    const prompt = this.buildPrompt(messages);
-    
+    const prompt = this.buildPrompt(options.messages);
+
     // 发送消息
     await this.client!.sendMessage(prompt);
 
@@ -363,35 +341,16 @@ export class IFlowSDKClient {
   async *chatStream(options: ChatCompletionOptions): AsyncGenerator<StreamChunk> {
     // 频率限制检查
     await this.checkRateLimit();
-    
+
     await this.ensureConnected();
-    
+
     // 设置模型
     const model = MODEL_ALIASES[options.model] || options.model;
     await this.client!.config.set('model', model);
 
-    // 敏感信息过滤（默认启用）
-    const shouldSanitize = options.sanitize !== false;
-    const messages = shouldSanitize ? sanitizeMessages(options.messages) : options.messages;
-    
-    // 检测并警告敏感信息
-    if (shouldSanitize) {
-      for (const msg of options.messages) {
-        const contentStr = typeof msg.content === 'string' 
-          ? msg.content 
-          : (Array.isArray(msg.content) 
-              ? msg.content.filter(c => c.type === 'text').map(c => c.text || '').join('') 
-              : '');
-        const detected = detectSensitiveInfo(contentStr);
-        if (detected.length > 0) {
-          this.log(`[IFlowSDK] 已过滤敏感信息: ${detected.length} 处`);
-        }
-      }
-    }
-
     // 构建提示词
-    const prompt = this.buildPrompt(messages);
-    
+    const prompt = this.buildPrompt(options.messages);
+
     // 发送消息
     await this.client!.sendMessage(prompt);
 
@@ -448,7 +407,7 @@ export class IFlowSDKClient {
 
   private buildPrompt(messages: ChatCompletionOptions['messages']): string {
     const parts: string[] = [];
-    
+
     for (const msg of messages) {
       // 提取文本内容
       let textContent = '';
@@ -460,7 +419,7 @@ export class IFlowSDKClient {
           .map(item => item.text)
           .join('\n');
       }
-      
+
       if (msg.role === 'system') {
         parts.push(`[System]: ${textContent}`);
       } else if (msg.role === 'user') {
@@ -469,7 +428,7 @@ export class IFlowSDKClient {
         parts.push(`[Assistant]: ${textContent}`);
       }
     }
-    
+
     // 只返回最后一条用户消息（iFlow SDK 是对话式的）
     // 如果需要完整上下文，可以传递所有内容
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');

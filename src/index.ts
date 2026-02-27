@@ -3,17 +3,18 @@ import cors from 'cors';
 import { getClient, SUPPORTED_MODELS, type ChatCompletionOptions } from './client.js';
 
 const app = express();
+// 端口说明: 28000=iflow2api, 28001=embedding_proxy, 28002=iflow-sdk-bridge
 const PORT = process.env.PORT || 28002;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // 增加 limit 支持大请求体
 
 // 健康检查
 app.get('/health', (_req: Request, res: Response) => {
   const client = getClient();
   const stats = client.getStats();
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
     stats: {
       totalRequests: stats.totalRequests,
@@ -33,7 +34,6 @@ const requestLogs: Array<{
   tokens: number;
   status: 'success' | 'error';
   error?: string;
-  sanitized: boolean;
 }> = [];
 const MAX_LOGS = 100;
 
@@ -53,7 +53,6 @@ app.get('/stats', (_req: Request, res: Response) => {
       maxAgeSec: 1800, // 30分钟
     },
     security: {
-      sanitizeEnabled: true,
       randomInterval: '300-1500ms',
       sessionRotation: '50 requests or 30 min',
     },
@@ -69,14 +68,14 @@ app.get('/stats', (_req: Request, res: Response) => {
 app.get('/logs', (req: Request, res: Response) => {
   const limit = parseInt(req.query.limit as string) || 50;
   const status = req.query.status as string;
-  
+
   let logs = requestLogs;
   if (status === 'error') {
     logs = logs.filter(l => l.status === 'error');
   } else if (status === 'success') {
     logs = logs.filter(l => l.status === 'success');
   }
-  
+
   res.json({
     total: requestLogs.length,
     logs: logs.slice(-limit),
@@ -102,15 +101,14 @@ app.post('/v1/chat/completions', async (req: Request, res: Response) => {
   const options = req.body as ChatCompletionOptions;
   const startTime = Date.now();
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
+
   if (!options.messages || options.messages.length === 0) {
     res.status(400).json({ error: 'messages is required' });
     return;
   }
 
   const client = getClient();
-  const sanitized = options.sanitize !== false;
-  
+
   try {
     if (options.stream) {
       // 流式响应
@@ -126,7 +124,7 @@ app.post('/v1/chat/completions', async (req: Request, res: Response) => {
       }
       res.write('data: [DONE]\n\n');
       res.end();
-      
+
       // 记录日志
       const latency = Date.now() - startTime;
       addLog({
@@ -137,13 +135,12 @@ app.post('/v1/chat/completions', async (req: Request, res: Response) => {
         latency,
         tokens: totalContent.length, // 粗略估计
         status: 'success',
-        sanitized,
       });
     } else {
       // 非流式响应
       const response = await client.chat(options);
       res.json(response);
-      
+
       // 记录日志
       const latency = Date.now() - startTime;
       addLog({
@@ -154,12 +151,11 @@ app.post('/v1/chat/completions', async (req: Request, res: Response) => {
         latency,
         tokens: response.choices[0]?.message?.content?.length || 0,
         status: 'success',
-        sanitized,
       });
     }
   } catch (error) {
     console.error('[Error]', error);
-    
+
     // 记录错误日志
     const latency = Date.now() - startTime;
     addLog({
@@ -171,12 +167,11 @@ app.post('/v1/chat/completions', async (req: Request, res: Response) => {
       tokens: 0,
       status: 'error',
       error: error instanceof Error ? error.message : 'Unknown error',
-      sanitized,
     });
-    
+
     if (!res.headersSent) {
-      res.status(500).json({ 
-        error: error instanceof Error ? error.message : 'Internal server error' 
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Internal server error'
       });
     }
   }
@@ -193,7 +188,7 @@ function addLog(log: typeof requestLogs[0]) {
 // Anthropic 兼容端点 /v1/messages
 app.post('/v1/messages', async (req: Request, res: Response) => {
   const { model, messages, max_tokens, stream } = req.body;
-  
+
   if (!messages || messages.length === 0) {
     res.status(400).json({ error: 'messages is required' });
     return;
@@ -217,7 +212,7 @@ app.post('/v1/messages', async (req: Request, res: Response) => {
   });
 
   const client = getClient();
-  
+
   try {
     if (stream) {
       // 流式响应 - Anthropic SSE 格式
@@ -226,7 +221,7 @@ app.post('/v1/messages', async (req: Request, res: Response) => {
       res.setHeader('Connection', 'keep-alive');
 
       const chatId = `msg_${Date.now()}`;
-      
+
       // 发送 message_start 事件
       res.write(`event: message_start\ndata: ${JSON.stringify({
         type: 'message_start',
@@ -290,7 +285,7 @@ app.post('/v1/messages', async (req: Request, res: Response) => {
         messages: openaiMessages,
         stream: false,
       });
-      
+
       res.json({
         id: response.id,
         type: 'message',
@@ -310,8 +305,8 @@ app.post('/v1/messages', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[Error]', error);
     if (!res.headersSent) {
-      res.status(500).json({ 
-        error: error instanceof Error ? error.message : 'Internal server error' 
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Internal server error'
       });
     }
   }
