@@ -82,6 +82,29 @@ pm2 save && pm2 startup
 
 ---
 
+## ⚠️ Known Issues / Limitations
+
+### System Prompt Conflict (Critical)
+
+**Problem**: The iFlow CLI SDK has its own system prompt handling that may conflict with your AI tool's prompts.
+
+| Issue | Description |
+|-------|-------------|
+| **iFlow System Prompt Injection** | SDK automatically appends iFlow's default system prompt |
+| **Client Prompt Filtering** | SDK may filter or override prompts from OpenClaw/Claude Code |
+| **Tool Call Issues** | Custom tool definitions may be ignored or cause errors |
+| **Conversation Drift** | AI behavior may not match expected persona |
+
+**Root Cause**: `@iflow-ai/iflow-cli-sdk` is designed for the iFlow CLI ecosystem, not as a generic API proxy. It enforces its own session settings.
+
+**Current Workaround**:
+- This bridge is best suited for **simple chat scenarios** without complex system prompts
+- For AI agents requiring custom tools/prompts, consider using [iflow2api](https://github.com/cacaview/iflow2api) instead
+
+**Status**: Under investigation. PRs welcome to improve prompt handling.
+
+---
+
 ## Why This Project?
 
 Unlike other iFlow API proxies that make direct HTTP requests to `apis.iflow.cn`, this project uses the **official `@iflow-ai/iflow-cli-sdk`** which provides:
