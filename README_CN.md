@@ -46,7 +46,7 @@ iFlow CLI 进程自动处理所有网络层安全特性，使这种方式比直�
 
 ```bash
 # 克隆仓库
-git clone https://github.com/YOUR_USERNAME/iflow-sdk-bridge.git
+git clone https://github.com/a88883284/iflow-sdk-bridge.git
 cd iflow-sdk-bridge
 
 # 安装依赖
