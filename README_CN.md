@@ -4,6 +4,83 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org/)
+[![npm](https://img.shields.io/npm/v/iflow-sdk-bridge.svg)](https://www.npmjs.com/package/iflow-sdk-bridge)
+
+---
+
+## 🚀 快速部署 (给 AI 看的)
+
+**这是一个 OpenAI API 的直接替代品，3 步部署：**
+
+### 第 1 步：安装运行
+
+```bash
+# 方式 A: npx（最快）
+npx iflow-sdk-bridge
+
+# 方式 B: npm 全局安装
+npm install -g iflow-sdk-bridge
+iflow-sdk-bridge
+
+# 方式 C: 从源码安装
+git clone https://github.com/a88883284/iflow-sdk-bridge.git
+cd iflow-sdk-bridge
+npm install && npm run build && npm start
+```
+
+### 第 2 步：验证
+
+```bash
+curl http://localhost:28002/v1/models
+# 应返回: {"object":"list","data":[...]}
+```
+
+### 第 3 步：配置你的 AI 工具
+
+**OpenClaw / Claude Code** - 添加到 `~/.openclaw/openclaw.json`:
+```json
+{
+  "providers": {
+    "iflow-bridge": {
+      "baseUrl": "http://localhost:28002/v1",
+      "apiKey": "sk-dummy"
+    }
+  }
+}
+```
+
+**任何 OpenAI SDK:**
+```javascript
+import OpenAI from 'openai';
+const client = new OpenAI({
+  baseURL: 'http://localhost:28002/v1',
+  apiKey: 'not-needed'
+});
+```
+
+### PM2 生产环境部署
+
+```bash
+npm install -g pm2
+pm2 start npx --name iflow-sdk-bridge -- iflow-sdk-bridge
+pm2 save && pm2 startup
+```
+
+### API 端点
+
+| 端点 | 方法 | 描述 |
+|------|------|------|
+| `http://localhost:28002/v1/chat/completions` | POST | OpenAI 兼容聊天 |
+| `http://localhost:28002/v1/messages` | POST | Anthropic 兼容聊天 |
+| `http://localhost:28002/v1/models` | GET | 模型列表 |
+| `http://localhost:28002/stats` | GET | 服务统计 |
+| `http://localhost:28002/health` | GET | 健康检查 |
+
+### 可用模型
+
+`glm-5`, `glm-4.7`, `deepseek-v3.2-chat`, `qwen3-coder-plus`, `kimi-k2`, `kimi-k2-thinking`, `kimi-k2.5`, `minimax-m2.5`, `qwen-vl-max`
+
+---
 
 ## 为什么选择这个项目？
 

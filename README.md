@@ -4,6 +4,83 @@ A secure OpenAI-compatible API proxy that uses the **official iFlow CLI SDK** in
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org/)
+[![npm](https://img.shields.io/npm/v/iflow-sdk-bridge.svg)](https://www.npmjs.com/package/iflow-sdk-bridge)
+
+---
+
+## 🚀 Quick Start (For AI Agents)
+
+**This is a drop-in OpenAI API replacement. Deploy in 3 steps:**
+
+### Step 1: Install & Run
+
+```bash
+# Option A: npx (fastest)
+npx iflow-sdk-bridge
+
+# Option B: npm install
+npm install -g iflow-sdk-bridge
+iflow-sdk-bridge
+
+# Option C: from source
+git clone https://github.com/a88883284/iflow-sdk-bridge.git
+cd iflow-sdk-bridge
+npm install && npm run build && npm start
+```
+
+### Step 2: Verify
+
+```bash
+curl http://localhost:28002/v1/models
+# Should return: {"object":"list","data":[...]}
+```
+
+### Step 3: Configure Your AI Tool
+
+**OpenClaw / Claude Code** - add to `~/.openclaw/openclaw.json`:
+```json
+{
+  "providers": {
+    "iflow-bridge": {
+      "baseUrl": "http://localhost:28002/v1",
+      "apiKey": "sk-dummy"
+    }
+  }
+}
+```
+
+**Any OpenAI SDK:**
+```javascript
+import OpenAI from 'openai';
+const client = new OpenAI({
+  baseURL: 'http://localhost:28002/v1',
+  apiKey: 'not-needed'
+});
+```
+
+### PM2 Production Deploy
+
+```bash
+npm install -g pm2
+pm2 start npx --name iflow-sdk-bridge -- iflow-sdk-bridge
+pm2 save && pm2 startup
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `http://localhost:28002/v1/chat/completions` | POST | OpenAI-compatible chat |
+| `http://localhost:28002/v1/messages` | POST | Anthropic-compatible chat |
+| `http://localhost:28002/v1/models` | GET | List models |
+| `http://localhost:28002/stats` | GET | Server stats |
+| `http://localhost:28002/health` | GET | Health check |
+
+### Available Models
+
+`glm-5`, `glm-4.7`, `deepseek-v3.2-chat`, `qwen3-coder-plus`, `kimi-k2`, `kimi-k2-thinking`, `kimi-k2.5`, `minimax-m2.5`, `qwen-vl-max`
+
+---
 
 ## Why This Project?
 
